@@ -240,6 +240,8 @@ Kubectl uses a similar command structure and logic to Linux:
 
 ## Trying it out
 
+[Ubuntu VM with minikube installed](https://drive.google.com/file/d/142vMkKUIIjvG-OiuOeaeVd-Mymj3uYBa/view?usp=sharing)
+
 - minikube start 
 - kubectl get pods
 - kubectl get nodes
@@ -252,6 +254,11 @@ Kubectl uses a similar command structure and logic to Linux:
 - kubectl get pod
 - kubectl get deployment
 - kubectl delete deployment [name]
+
+[tutorial 1](https://kubernetes.io/docs/tutorials/hello-minikube/)
+[tutorial 2](https://kubernetes.io/docs/tutorials/kubernetes-basics/scale/scale-intro/)
+
+
 
 ## Installation Instructions - INCOMPLETE
 
