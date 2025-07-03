@@ -238,7 +238,22 @@ Kubectl uses a similar command structure and logic to Linux:
 
 ![DIAGRAM](pics/kubectl-structure.jpg)
 
-## Trying it out - INCOMPLETE
+## Trying it out
+
+- minikube start 
+- kubectl get pods
+- kubectl get nodes
+- kubectl describe nodes
+- kubectl create deployment nginx-depl --image=nginx
+- kubectl get deployment
+- kubectl get pod
+- kubectl get replicaset
+- kubectl edit deployment nginx-depl [edit with vi]
+- kubectl get pod
+- kubectl get deployment
+- kubectl delete deployment [name]
+
+## Installation Instructions - INCOMPLETE
 
 K8S is a modern, complex tool, which is difficult to get your head around just with theory. Deploying a cluster in the cloud just to learn or develop with could be expensive, so instead you can use minikube.
 
@@ -262,3 +277,6 @@ curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-
 sudo install minikube-linux-amd64 /usr/local/bin/minikube
 minikube start --driver=kvm2 
 minikube start --disk-size=5g
+
+
+
