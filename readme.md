@@ -239,6 +239,9 @@ Kubectl uses a similar command structure and logic to Linux:
 ![DIAGRAM](pics/kubectl-structure.jpg)
 
 ## Trying it out
+>Whether you use an existing VM, or create a new one, there are a few options to congfigure for the VM in VirtualBox - ensure that `Nested VT-x/AMD-V` is enabled, and ideally you want 4 CPU cores, and at least 4GB of RAM allocated (more is better). Finally, minikube will create it's own VM (within your VM, hence the nested option above) which has a 20GB disk. You should ensure your VM has a big enough HDD to accomodate, or you can force the minikube VM to use a smaller disk with the `--disk-size=[number]g` parameter.
+
+The following link is to an Ubuntu VM upon which minikube has been installed and it's ready to try with the commands below. Alternatively you can try installing it yourself from a blank VM with the instructions further down.
 
 [Ubuntu VM with minikube installed](https://drive.google.com/file/d/142vMkKUIIjvG-OiuOeaeVd-Mymj3uYBa/view?usp=sharing)
 
@@ -256,20 +259,19 @@ Kubectl uses a similar command structure and logic to Linux:
 - kubectl delete deployment [name]
 
 [tutorial 1](https://kubernetes.io/docs/tutorials/hello-minikube/)
+
 [tutorial 2](https://kubernetes.io/docs/tutorials/kubernetes-basics/scale/scale-intro/)
 
-
-
-## Installation Instructions - INCOMPLETE
-
+## Installing Minikube
 K8S is a modern, complex tool, which is difficult to get your head around just with theory. Deploying a cluster in the cloud just to learn or develop with could be expensive, so instead you can use minikube.
 
-Minikube is a version of K8S which deploys a control plane and worker node on a single VM. You can install it on Windows if you wish, but it can be a bit tricky and resource intensive. 
+Minikube is a version of K8S which deploys a control plane and worker node on a single VM. You can install it on Windows if you wish, but it can be a bit tricky, so since you know Linux, best to stick with it. 
 
-enable nested vtx
+### CentOS Stream 9 - FAULTY
+**The following commands will install minikube on your CentOS VM, but when you try to start it, it fails. Feel free to try it yourself and troubleshoot, or jump to Ubuntu instructions below.**
 
+```bash
 sudo dnf update -y
-
 sudo dnf install -y qemu-kvm libvirt virt-install virt-manager
 sudo systemctl enable --now libvirtd
 sudo usermod -aG libvirt $(whoami)
@@ -282,8 +284,64 @@ source ~/.bashrc
 kubectl version --client
 curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
 sudo install minikube-linux-amd64 /usr/local/bin/minikube
-minikube start --driver=kvm2 
-minikube start --disk-size=5g
+minikube start
+```
 
+### Ubuntu
 
+Download the [latest Ubuntu](https://ubuntu.com/download/desktop) installation media.
 
+- Create a new VM in VirtualBox, select your Ubuntu ISO, and configure the following recommended settings:
+  - 4 CPU cores
+  - 4GB RAM or more
+  - 50GB HDD
+  - Enable Nested VT-x/AMD-V
+- Start your VM, select `Try/Install Ubuntu`
+- Once loaded the installation wizard should start. 
+- The choices which are not obvious can mostly just be confirmed or skipped. 
+>For convenience right now you may choose to 'skip login', but this is of course not recommended in industry.
+
+It may take a while, but eventually you're prompted to reboot, remove the installation media (`Devices > Optical Drives > Remove media from virtual drive`), if it's already removed simply restart the VM.
+
+You should be presented with the Ubuntu desktop; At this point it's worth just leaving it for a minute or two while it checks for updates, and install them when prompted.
+
+**Once installed and updated, create a VirtualBox snapshot**
+
+There are a number of different ways to install and configure minikube, we're going to use one of the most common approaches, which is installing it on top of Docker.
+
+#### Install Docker
+
+Add Docker's official GPG key:
+```bash
+sudo apt-get update
+sudo apt-get install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+```
+
+Add the repository to Apt sources:
+```bash
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+```
+Install the Docker packages
+```bash
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+Verify the installation
+```bash
+sudo docker run hello-world
+```
+Install Minikube
+```bash
+curl -LO https://github.com/kubernetes/minikube/releases/latest/download/minikube-linux-amd64
+sudo install minikube-linux-amd64 /usr/local/bin/minikube && rm minikube-linux-amd64
+```
+Start your cluster
+```bash
+minikube start
+```
