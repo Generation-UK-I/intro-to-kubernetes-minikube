@@ -165,7 +165,7 @@ If we declare our 3x nginx pods as a Deployment YAML file, the **Deployment Cont
 
 When Kube Scheduler schedules pods for deployment it notifies the Kube API server. The Deployment Controller creates a child-object called a **ReplicaSet** which launches the desired pods and maintains a stable set of replicas.
 
-If a pod fails the **ReplicaSet Controller** recognises the difference between the desired and current state, then launches new pods to rectify. 
+If a pod fails the **ReplicaSet Controller** recognises the difference between the desired and current state, then launches new pods to rectify.
 
 ### Deployments
 
@@ -276,6 +276,7 @@ There are a few options to configure for the VM in VirtualBox to make it work in
 - Ensure that `Nested VT-x/AMD-V` is enabled:
   1. Right click the VM's tab in VirtualBox (usually called `CentOS-1.1.0`) and choose `Settings...`
   2. On the left of the Settings window click `System`, then change the `Base Memory` to 4GB (`4096MB`).
+  3. In order to access your deployed app(s) from the host configure the following: `Network` > `Attached to:` > `Bridged Adapter`
 - If you intend to try some more advanced deployments you might also want to give the VM 4x CPU cores to improve performance. .You can do so by clicking the `Processor` tab on the same settings window.
 
 ### Install Required Dependencies
@@ -353,14 +354,470 @@ kubectl create deployment nginx-depl --image=nginx
 kubectl get deployment
 kubectl get pod
 kubectl get replicaset
-kubectl edit deployment nginx-depl # edit with vi
+kubectl edit deployment nginx-depl # edit with vi to add replicas
 kubectl get pod
 kubectl get deployment
 kubectl delete deployment [name]
 ```
 
-If everything is working, proceed through the following tutorials:
+If everything is working, proceed through the following Lab.
 
-[tutorial 1](https://kubernetes.io/docs/tutorials/hello-minikube/)
+## Kubernetes Practical Lab
 
-[tutorial 2](https://kubernetes.io/docs/tutorials/kubernetes-basics/scale/scale-intro/)
+### Objective
+
+Deploy and manage a simple NGINX web application using Minikube.
+
+By the end of this lab you will be able to:
+
+- Verify a Kubernetes cluster
+- Create a Deployment
+- View Pods and logs
+- Create a Service
+- Access a containerised web application
+- Scale an application
+- Observe self-healing behaviour
+- Perform rolling updates
+- Roll back deployments
+- Create resources using YAML manifests
+
+---
+
+### Verify the Cluster
+
+Check Minikube is running:
+
+```sh
+minikube status
+```
+
+Expected output:
+
+```sh
+minikube
+type: Control Plane
+host: Running
+kubelet: Running
+apiserver: Running
+kubeconfig: Configured
+```
+
+Check the node:
+
+```sh
+kubectl get nodes
+```
+
+Expected output:
+
+```sh
+NAME       STATUS   ROLES           AGE   VERSION
+minikube   Ready    control-plane   55m   v1.37.0
+```
+
+### View Existing Workloads
+
+List all pods:
+
+```sh
+kubectl get pods -A
+```
+
+- `-A` means all namespaces.
+- Review the system pods created by Kubernetes.
+
+### Create a Deployment
+
+Deploy an NGINX web server:
+
+```sh
+kubectl create deployment webserver --image=nginx
+```
+
+Expected output:
+
+```sh
+deployment.apps/webserver created
+```
+
+Verify:
+
+```sh
+kubectl get deployments
+```
+
+Expected output:
+
+```sh
+NAME        READY   UP-TO-DATE   AVAILABLE   AGE
+webserver   1/1     1            1           53s
+```
+
+View pods:
+
+```sh
+kubectl get pods
+```
+
+Expected output:
+
+```sh
+NAME                         READY   STATUS    RESTARTS   AGE
+webserver-85f8d869b5-sqxcw   1/1     Running   0          76s
+```
+
+### Inspect the Deployment
+
+```sh
+kubectl describe deployment webserver
+```
+
+Questions:
+
+- How many replicas exist?
+- Which image is deployed?
+- Which labels have been assigned?
+
+<details><summary>Answers:</summary>
+
+- 1
+- nginx
+- app=webserver
+
+</details>
+
+#### Inspect the Pod
+
+```sh
+kubectl describe pod [POD_NAME]
+```
+
+#### View Container Logs
+
+```sh
+kubectl logs [POD_NAME]
+```
+
+>Even though NGINX may not show much output, this is a useful command for troubleshooting applications.
+
+### Create a Service
+
+A Pod's IP address may change if it is recreated.
+
+Services provide a stable endpoint for applications.
+
+Create a NodePort Service:
+
+```sh
+kubectl expose deployment webserver \
+  --port=80 \
+  --type=NodePort
+```
+
+Expected output:
+
+```sh
+service/webserver exposed
+```
+
+View the service:
+
+```sh
+kubectl get svc
+```
+
+Expected output:
+
+```sh
+NAME         TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+kubernetes   ClusterIP   10.96.0.1        <none>        443/TCP        68m
+webserver    NodePort    10.109.141.191   <none>        80:31322/TCP   37s
+```
+
+Retrieve the URL:
+
+```sh
+minikube service webserver --url
+```
+
+Example output:
+
+```sh
+http://192.168.49.2:31322
+```
+
+Test it:
+
+```sh
+curl $(minikube service webserver --url)
+```
+
+>The address returned by: `minikube service webserver --url` belongs to the Minikube node network, not the VM itself.
+>
+>This address cannot normally be reached from the host computer.
+>
+>To make the site accessible from a browser on the host machine we will create a port forwarding tunnel.
+
+**Open a Second Terminal, keep your original terminal open.**
+
+|Window|Purpose|
+|---|---|
+|Terminal 1|Normal Kubernetes commands|
+|Terminal 2|Port forwarding process|
+
+The port forwarding process must remain running while you access the website.
+
+### Create a Port Forward
+
+In **Terminal 2** run:
+
+```sh
+kubectl port-forward deployment/webserver \
+8080:80 \
+--address 0.0.0.0
+```
+
+Expected output:
+
+```sh
+Forwarding from 0.0.0.0:8080 -> 80
+```
+
+Leave this terminal running.
+
+### Allow Traffic Through the Firewall
+
+In **Terminal 1**:
+
+Check whether port 8080 is allowed:
+
+```sh
+sudo firewall-cmd --query-port=8080/tcp
+```
+
+Expected:
+
+```sh
+no
+```
+
+allow it:
+
+```sh
+sudo firewall-cmd --add-port=8080/tcp --permanent
+sudo firewall-cmd --reload
+```
+
+Verify:
+
+```sh
+sudo firewall-cmd --query-port=8080/tcp # now returns 'yes'
+sudo firewall-cmd --list-ports # lists all permitted ports
+```
+
+### Access the Website
+
+Identify the VM IP address:
+
+```sh
+ip a
+
+# or
+
+hostname -I
+```
+
+From your host computer open:
+
+```sh
+http://[VM_IP_ADDRESS]:8080
+```
+
+You should see `Welcome to nginx!`
+
+### Scale the Application
+
+Increase replica count:
+
+```sh
+kubectl scale deployment/webserver \
+--replicas=3
+```
+
+Verify:
+
+```sh
+kubectl get deployments
+```
+
+List Pods:
+
+```sh
+kubectl get pods
+```
+
+Expected:
+
+```sh
+3 Running Pods
+```
+
+### Observe Self-Healing
+
+List Pods:
+
+```sh
+kubectl get pods
+```
+
+Delete one:
+
+```sh
+kubectl delete pod [POD_NAME]
+```
+
+Immediately watch:
+
+```sh
+kubectl get pods
+```
+
+Notice:
+
+- One Pod is removed.
+- Kubernetes automatically creates a replacement.
+
+Press `Ctrl+C` to stop watching
+
+### View the ReplicaSet
+
+ReplicaSets maintain the correct number of Pods.
+
+View them:
+
+```sh
+kubectl get rs
+```
+
+Questions:
+
+- How many replicas are desired?
+- How many are currently running?
+
+<details><summary>Answers:</summary>
+
+- 3
+- 3
+
+</details>
+
+### Perform a Rolling Update
+
+Update the image:
+
+```sh
+kubectl set image deployment/webserver \
+nginx=nginx:latest
+```
+
+Monitor progress:
+
+```sh
+kubectl rollout status deployment/webserver
+```
+
+View revision history:
+
+```sh
+kubectl rollout history deployment/webserver
+```
+
+### Roll Back
+
+Undo the update:
+
+```sh
+kubectl rollout undo deployment/webserver
+```
+
+Verify:
+
+```sh
+kubectl rollout history deployment/webserver
+```
+
+### Create a Manifest
+
+Export the deployment:
+
+```sh
+kubectl get deployment webserver -o yaml > deployment.yaml
+```
+
+Inspect:
+
+```sh
+cat deployment.yaml
+```
+
+Identify:
+
+- apiVersion
+- kind
+- metadata
+- spec
+
+These are present in nearly every Kubernetes manifest.
+
+### Recreate Using YAML
+
+Delete the deployment:
+
+```sh
+kubectl delete deployment webserver
+```
+
+Verify:
+
+```sh
+kubectl get deployments
+```
+
+Recreate it:
+
+```sh
+kubectl apply -f deployment.yaml
+```
+
+Verify:
+
+```sh
+kubectl get deployments
+```
+
+Delete everything created during the exercise:
+
+```sh
+kubectl delete svc webserver
+kubectl delete deployment webserver
+```
+
+Verify:
+
+```sh
+kubectl get all
+```
+
+The output should show no remaining user-created resources.
+
+## Key Concepts
+
+- `Pod`: smallest deployable Kubernetes object
+- `Deployment`: manages Pods
+- `ReplicaSet`: maintains correct number of Pods
+- `Service`: provides stable networking
+- `Port Forwarding`: exposes workloads outside the cluster
+- `YAML Manifests`: declarative definition of Kubernetes resources
+- `Self-Healing`: failed Pods are automatically recreated
+- `Rolling Updates`: applications can be updated without downtime
+- `Rollback`: deployments can be reverted if a change causes problems
